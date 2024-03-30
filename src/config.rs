@@ -13,4 +13,10 @@ pub struct Config {
 
     #[arg(short = 'e', long = "pattern", default_value = "false")]
     pub enable_regex: bool,
+
+    #[arg(short = 'A', long = "after", default_value = "0")]
+    pub after_count: u32,
+
+    #[arg(short = 'B', long = "before", default_value = "0")]
+    pub before_count: u32,
 }
