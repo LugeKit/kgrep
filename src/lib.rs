@@ -4,7 +4,11 @@ use std::io::{Read, stdin};
 
 use config::Config;
 
+use crate::search::plaintext::PlainText;
+use crate::search::Search;
+
 pub mod config;
+mod search;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = match config.file_name {
@@ -13,14 +17,16 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Some(file_name) => { fs::read_to_string(file_name)? }
     };
 
-    if !config.ignore_case {
-        for line in search(&config.query, &contents) {
-            println!("{line}");
-        }
-    } else {
-        for line in search_case_insensitive(&config.query, &contents) {
-            println!("{line}");
-        }
+    let mut content_lines = vec![];
+    for line in contents.lines() {
+        content_lines.push(line);
+    }
+
+    let searcher = PlainText::new(config.ignore_case);
+    let line_indexes = searcher.search(&config.query, &content_lines);
+
+    for index in line_indexes {
+        println!("{}", content_lines[index]);
     }
 
     Ok(())
