@@ -1,12 +1,17 @@
+use std::{fs, io};
 use std::error::Error;
-use std::fs;
+use std::io::{Read, stdin};
 
 use config::Config;
 
 pub mod config;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents = fs::read_to_string(config.file_name)?;
+    let contents = match config.file_name {
+        // FIXME: if not piped in, it will infinitely wait here
+        None => { io::read_to_string(stdin())? }
+        Some(file_name) => { fs::read_to_string(file_name)? }
+    };
 
     if !config.ignore_case {
         for line in search(&config.query, &contents) {

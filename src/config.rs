@@ -6,7 +6,7 @@ pub struct Config {
     pub query: String,
 
     #[arg(short = 'f', long = "file")]
-    pub file_name: String,
+    pub file_name: Option<String>,
 
     #[arg(short = 'i', long = "ignore_case", default_value = "false")]
     pub ignore_case: bool,
