@@ -13,7 +13,12 @@ mod search;
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = match config.file_name {
         // FIXME: if not piped in, it will infinitely wait here
-        None => { io::read_to_string(stdin())? }
+        None => {
+            if stdin().is_terminal() {
+                return Err("file name is empty and no input".into());
+            }
+            io::read_to_string(stdin())?
+        }
         Some(ref file_name) => { fs::read_to_string(file_name)? }
     };
     let content_lines = contents.lines().collect();
