@@ -16,19 +16,10 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         None => { io::read_to_string(stdin())? }
         Some(file_name) => { fs::read_to_string(file_name)? }
     };
-
-    let mut content_lines = vec![];
-    for line in contents.lines() {
-        content_lines.push(line);
-    }
-
+    let content_lines = contents.lines().collect();
     let searcher = PlainText::new(config.ignore_case);
     let line_indexes = searcher.search(&config.query, &content_lines);
-
-    for index in line_indexes {
-        println!("{}", content_lines[index]);
-    }
-
+    line_indexes.iter().for_each(|i| println!("{}", content_lines[*i]));
     Ok(())
 }
 

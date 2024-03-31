@@ -12,24 +12,17 @@ impl PlainText {
 
 impl Search for PlainText {
     fn search(&self, query: &str, contents: &Vec<&str>) -> Vec<usize> {
-        let mut result = vec![];
-        let lowercase_query = query.to_lowercase();
-        let mut actual_query = query;
-        if self.ignore_case {
-            actual_query = lowercase_query.as_str();
-        }
-
-        for i in (0..contents.len()) {
-            let line = contents[i];
-            if !self.ignore_case && line.contains(actual_query) {
-                result.push(i);
-                continue;
-            }
-
-            if self.ignore_case && line.to_lowercase().contains(actual_query) {
-                result.push(i);
-            }
-        }
-        result
+        contents.iter()
+            .enumerate()
+            .filter_map(|(i, line)| {
+                if self.ignore_case && line.to_lowercase().contains(query) {
+                    Some(i)
+                } else if !self.ignore_case && line.contains(query) {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
