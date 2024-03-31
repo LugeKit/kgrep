@@ -15,8 +15,8 @@ pub struct Config {
     pub enable_regex: bool,
 
     #[arg(short = 'A', long = "after", default_value = "0")]
-    pub after_count: u32,
+    pub after_count: usize,
 
     #[arg(short = 'B', long = "before", default_value = "0")]
-    pub before_count: u32,
+    pub before_count: usize,
 }

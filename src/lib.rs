@@ -19,45 +19,13 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let content_lines = contents.lines().collect();
     let searcher = PlainText::new(config.ignore_case);
     let line_indexes = searcher.search(&config.query, &content_lines);
-    line_indexes.iter().for_each(|i| println!("{}", content_lines[*i]));
+    line_indexes.into_iter()
+        .map(|i|
+            (if i > config.before_count { i - config.before_count } else { 0 }, content_lines.len().min(i + config.after_count + 1))
+        )
+        .for_each(|(start, end)| {
+            content_lines[start..end].into_iter()
+                .for_each(|line| { println!("{}", line) })
+        });
     Ok(())
-}
-
-fn search<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
-    let mut result = Vec::new();
-    for line in contents.lines() {
-        if line.contains(query) {
-            result.push(line);
-        }
-    }
-    result
-}
-
-fn search_case_insensitive<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
-    let mut result = Vec::new();
-    for line in contents.lines() {
-        if line.to_lowercase().contains(query) {
-            result.push(line);
-        }
-    }
-    result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn one_result() {
-        let query = "duct";
-        let contents = "Rust:\nsafe, fast and productive.\nPick three.";
-        assert_eq!(vec!["safe, fast and productive."], search(query, contents));
-    }
-
-    #[test]
-    fn case_sensitive() {
-        let query = "rust";
-        let contents = "Rust:\nsafe, fast and productive.\nPick three.";
-        assert_eq!(vec!["Rust:"], search_case_insensitive(query, contents));
-    }
 }
