@@ -1,18 +1,20 @@
 use std::{fs, io};
+use std::collections::HashMap;
 use std::error::Error;
-use std::io::{IsTerminal, Read, stdin};
+use std::io::{IsTerminal, stdin};
+
+use colored::{ColoredString, Colorize};
 
 use config::Config;
-
-use crate::search::plaintext::PlainText;
-use crate::search::Search;
+use search::{Search, SearchParam, SearchResult};
+use search::plaintext::PlainText;
 
 pub mod config;
 mod search;
+mod model;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = match config.file_name {
-        // FIXME: if not piped in, it will infinitely wait here
         None => {
             if stdin().is_terminal() {
                 return Err("file name is empty and no input".into());
@@ -21,43 +23,86 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         }
         Some(ref file_name) => { fs::read_to_string(file_name)? }
     };
-    let content_lines = contents.lines().collect();
-    let searcher = PlainText::new(config.ignore_case);
-    let line_indexes = searcher.search(&config.query, &content_lines);
-    display_result(&config, &content_lines, &line_indexes)
-        .iter()
-        .for_each(|&(start, end)| {
-            content_lines[start..end].iter().for_each(|&line| println!("{line}"));
-        });
+    let content_lines: Vec<_> = contents.lines().collect();
+
+    let searcher = PlainText::new();
+    let search_result = searcher.search(SearchParam::new(&config.query, &content_lines, config.ignore_case));
+
+    display_results(&config, &content_lines, &search_result);
 
     Ok(())
 }
 
-fn display_result(config: &Config, contents: &Vec<&str>, indexes: &Vec<usize>) -> Vec<(usize, usize)> {
-    let ranges: Vec<(usize, usize)> = indexes.iter()
-        .map(|i|
-            (if *i > config.before_count { *i - config.before_count } else { 0 }, contents.len().min(i + config.after_count + 1))
-        )
-        .collect();
+fn display_results(config: &Config, content_lines: &Vec<&str>, results: &Vec<SearchResult>) {
+    if results.len() == 0 {
+        return;
+    }
 
-    return ranges.iter()
-        .enumerate()
-        .filter_map(|(i, (start, end))| {
-            if i > 0 && ranges[i - 1].1 >= *start {
-                return None;
+    let mut highlights_map = HashMap::new();
+    for result in results {
+        highlights_map.insert(result.line_index, &result.highlights);
+    }
+
+    let build_range = |result: &SearchResult| -> (usize, usize) {
+        let start_index = if result.line_index > config.before_count {
+            result.line_index - config.before_count
+        } else {
+            0
+        };
+
+        let end_index = if result.line_index + config.after_count < content_lines.len() {
+            result.line_index + config.after_count + 1
+        } else {
+            content_lines.len()
+        };
+
+        (start_index, end_index)
+    };
+
+    let mut j = 0;
+    let mut range = build_range(&results[j]);
+    'outer: for i in 0..content_lines.len() {
+        if i < range.0 {
+            continue;
+        }
+
+        while i >= range.1 {
+            j += 1;
+            if j >= results.len() {
+                break 'outer;
             }
 
-            let mut j = i + 1;
-            let mut new_end = *end;
-            while j < ranges.len() {
-                if new_end < ranges[j].0 {
-                    break;
-                }
-                new_end = new_end.max(ranges[j].1);
-                j += 1;
-            }
+            range = build_range(&results[j]);
+        }
 
-            return Some((*start, new_end));
-        })
-        .collect();
+        if let Some(&highlights) = highlights_map.get(&i) {
+            display_highlights(content_lines[i], highlights);
+        } else {
+            println!("{}", content_lines[i]);
+        }
+        continue;
+    }
+}
+
+fn display_highlights(s: &str, highlights: &Vec<(usize, usize)>) {
+    let mut line: Vec<ColoredString> = vec![];
+    let mut i = 0;
+    for &(start, end) in highlights {
+        let _s = &s[i..start];
+        line.push(_s.normal());
+
+        let _s = &s[start..end];
+        line.push(_s.on_white().bold());
+
+        i = end;
+    }
+
+    if i < s.len() {
+        line.push(s[i..].normal())
+    }
+
+    for part in line {
+        print!("{}", part);
+    }
+    print!("\n");
 }
