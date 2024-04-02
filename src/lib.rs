@@ -6,9 +6,9 @@ use std::io::{IsTerminal, stdin};
 use colored::{ColoredString, Colorize};
 
 use config::Config;
-use search::{SearchParam, SearchResult};
+use search::SearchResult;
 
-use crate::search::new_searcher;
+use crate::search::{execute_search, new_searcher, SearchParam};
 
 pub mod config;
 mod search;
@@ -26,8 +26,11 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     };
     let content_lines: Vec<_> = contents.lines().collect();
 
-    let searcher = new_searcher(config.enable_regex);
-    let search_result = searcher.search(SearchParam::new(&config.query, &content_lines, config.ignore_case))?;
+    let search_result = execute_search(
+        &content_lines,
+        &SearchParam::new(config.ignore_case, config.word_match),
+        new_searcher(config.enable_regex, &config.query)?,
+    );
 
     display_results(&config, &content_lines, &search_result);
 
