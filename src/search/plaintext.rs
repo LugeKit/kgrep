@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::search::{Search, SearchParam, SearchResult};
 
 pub struct PlainText {}
@@ -9,7 +11,7 @@ impl PlainText {
 }
 
 impl Search for PlainText {
-    fn search(&self, param: SearchParam) -> Vec<SearchResult> {
+    fn search(&self, param: SearchParam) -> Result<Vec<SearchResult>, Box<dyn Error>> {
         let actual_query = if param.ignore_case {
             param.query.to_lowercase()
         } else {
@@ -29,7 +31,7 @@ impl Search for PlainText {
                 if matches.len() == 0 {
                     None
                 } else {
-                    Some(SearchResult::new(i, matches))
+                    Some(Ok(SearchResult::new(i, matches)))
                 }
             })
             .collect()

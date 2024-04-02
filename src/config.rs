@@ -10,7 +10,15 @@ pub struct Config {
     #[arg(short = 'i', long = "ignore_case", default_value = "false")]
     pub ignore_case: bool,
 
-    #[arg(short = 'e', long = "pattern", default_value = "false")]
+    // TODO: implement this
+    #[arg(short = 'r', long = "revert_match", default_value = "false")]
+    pub revert_match: bool,
+
+    // TODO: implement this
+    #[arg(short = 'w', long = "word", default_value = "false")]
+    pub word_match: bool,
+
+    #[arg(short = 'E', long = "pattern", default_value = "false")]
     pub enable_regex: bool,
 
     #[arg(short = 'A', long = "after", default_value = "0")]

@@ -6,8 +6,9 @@ use std::io::{IsTerminal, stdin};
 use colored::{ColoredString, Colorize};
 
 use config::Config;
-use search::{Search, SearchParam, SearchResult};
-use search::plaintext::PlainText;
+use search::{SearchParam, SearchResult};
+
+use crate::search::new_searcher;
 
 pub mod config;
 mod search;
@@ -25,8 +26,8 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     };
     let content_lines: Vec<_> = contents.lines().collect();
 
-    let searcher = PlainText::new();
-    let search_result = searcher.search(SearchParam::new(&config.query, &content_lines, config.ignore_case));
+    let searcher = new_searcher(config.enable_regex);
+    let search_result = searcher.search(SearchParam::new(&config.query, &content_lines, config.ignore_case))?;
 
     display_results(&config, &content_lines, &search_result);
 
@@ -62,10 +63,6 @@ fn display_results(config: &Config, content_lines: &Vec<&str>, results: &Vec<Sea
     let mut j = 0;
     let mut range = build_range(&results[j]);
     'outer: for i in 0..content_lines.len() {
-        if i < range.0 {
-            continue;
-        }
-
         while i >= range.1 {
             j += 1;
             if j >= results.len() {
@@ -73,6 +70,10 @@ fn display_results(config: &Config, content_lines: &Vec<&str>, results: &Vec<Sea
             }
 
             range = build_range(&results[j]);
+        }
+
+        if i < range.0 {
+            continue;
         }
 
         if let Some(&highlights) = highlights_map.get(&i) {
