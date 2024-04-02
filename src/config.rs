@@ -10,7 +10,6 @@ pub struct Config {
     #[arg(short = 'i', long = "ignore_case", default_value = "false")]
     pub ignore_case: bool,
 
-    // TODO: implement this
     #[arg(short = 'r', long = "revert_match", default_value = "false")]
     pub revert_match: bool,
 

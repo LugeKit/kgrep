@@ -32,7 +32,11 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         new_searcher(config.enable_regex, &config.query)?,
     );
 
-    display_results(&config, &content_lines, &search_result);
+    if config.revert_match {
+        display_revert(&content_lines, &search_result);
+    } else {
+        display_results(&config, &content_lines, &search_result);
+    }
 
     Ok(())
 }
@@ -109,4 +113,18 @@ fn display_highlights(s: &str, highlights: &Vec<(usize, usize)>) {
         print!("{}", part);
     }
     print!("\n");
+}
+
+fn display_revert(content_lines: &Vec<&str>, results: &Vec<SearchResult>) {
+    let mut j = 0;
+    for i in 0..content_lines.len() {
+        if let Some(result) = results.get(j) {
+            if i == result.line_index {
+                j += 1;
+                continue;
+            }
+        }
+
+        println!("{}", content_lines[i]);
+    }
 }
