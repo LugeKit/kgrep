@@ -1,95 +1,88 @@
-use std::{fs, io};
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::error::Error;
-use std::io::{IsTerminal, stdin};
+use std::fs::File;
+use std::io::{BufRead, BufReader, IsTerminal, Read, stdin};
 
 use colored::{ColoredString, Colorize};
 
 use config::Config;
-use search::SearchResult;
 
-use crate::search::{execute_search, new_searcher, SearchParam};
+use crate::search::Search;
 
 pub mod config;
 mod search;
 mod model;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents = match config.file_name {
-        None => {
-            if stdin().is_terminal() {
-                return Err("file name is empty and no input".into());
-            }
-            io::read_to_string(stdin())?
+    if let None = config.filename {
+        if stdin().is_terminal() {
+            return Err("file name is empty and no input".into());
         }
-        Some(ref file_name) => { fs::read_to_string(file_name)? }
-    };
-    let content_lines: Vec<_> = contents.lines().collect();
+    }
 
-    let search_result = execute_search(
-        &content_lines,
-        &SearchParam::new(config.ignore_case, config.word_match),
-        new_searcher(config.enable_regex, &config.query)?,
-    );
-
-    if config.revert_match {
-        display_revert(&content_lines, &search_result);
-    } else {
-        display_results(&config, &content_lines, &search_result);
+    let searcher = search::new_searcher(config.enable_regex, &config.query)?;
+    match config.filename {
+        None => {
+            process(&config, stdin(), searcher);
+        }
+        Some(ref filename) if filename.ne("*") => {
+            process(&config, File::open(filename)?, searcher);
+        }
+        _ => {}
     }
 
     Ok(())
 }
 
-fn display_results(config: &Config, content_lines: &Vec<&str>, results: &Vec<SearchResult>) {
-    if results.len() == 0 {
-        return;
-    }
+fn process<'a, T: Read>(config: &Config, reader: T, searcher: Box<dyn Search + 'a>) {
+    let mut before_lines = VecDeque::new();
+    let mut after_count = 0;
 
-    let mut highlights_map = HashMap::new();
-    for result in results {
-        highlights_map.insert(result.line_index, &result.highlights);
-    }
+    BufReader::new(reader)
+        .lines()
+        .for_each(|s| {
+            match s {
+                Ok(line) => {
+                    let results = if config.ignore_case {
+                        searcher.search(&line.to_lowercase())
+                    } else {
+                        searcher.search(&line)
+                    };
 
-    let build_range = |result: &SearchResult| -> (usize, usize) {
-        let start_index = if result.line_index > config.before_count {
-            result.line_index - config.before_count
-        } else {
-            0
-        };
+                    if config.revert_match {
+                        match results {
+                            None => {
+                                println!("{}", line);
+                            }
+                            Some(_) => { return; }
+                        }
+                    } else {
+                        match results {
+                            None => {
+                                if after_count > 0 {
+                                    after_count -= 1;
+                                    println!("{}", line);
+                                    return;
+                                }
 
-        let end_index = if result.line_index + config.after_count < content_lines.len() {
-            result.line_index + config.after_count + 1
-        } else {
-            content_lines.len()
-        };
+                                before_lines.push_back(line);
+                                if before_lines.len() > config.before_count {
+                                    before_lines.pop_front();
+                                }
+                            }
+                            Some(highlights) => {
+                                before_lines.iter().for_each(|line| println!("{}", line));
+                                before_lines.clear();
+                                after_count = config.after_count;
 
-        (start_index, end_index)
-    };
-
-    let mut j = 0;
-    let mut range = build_range(&results[j]);
-    'outer: for i in 0..content_lines.len() {
-        while i >= range.1 {
-            j += 1;
-            if j >= results.len() {
-                break 'outer;
+                                display_highlights(&line, &highlights);
+                            }
+                        }
+                    }
+                }
+                Err(_) => { return; }
             }
-
-            range = build_range(&results[j]);
-        }
-
-        if i < range.0 {
-            continue;
-        }
-
-        if let Some(&highlights) = highlights_map.get(&i) {
-            display_highlights(content_lines[i], highlights);
-        } else {
-            println!("{}", content_lines[i]);
-        }
-        continue;
-    }
+        });
 }
 
 fn display_highlights(s: &str, highlights: &Vec<(usize, usize)>) {
@@ -113,18 +106,4 @@ fn display_highlights(s: &str, highlights: &Vec<(usize, usize)>) {
         print!("{}", part);
     }
     print!("\n");
-}
-
-fn display_revert(content_lines: &Vec<&str>, results: &Vec<SearchResult>) {
-    let mut j = 0;
-    for i in 0..content_lines.len() {
-        if let Some(result) = results.get(j) {
-            if i == result.line_index {
-                j += 1;
-                continue;
-            }
-        }
-
-        println!("{}", content_lines[i]);
-    }
 }

@@ -5,7 +5,7 @@ use clap::Parser;
 pub struct Config {
     pub query: String,
 
-    pub file_name: Option<String>,
+    pub filename: Option<String>,
 
     #[arg(short = 'i', long = "ignore_case", default_value = "false")]
     pub ignore_case: bool,
