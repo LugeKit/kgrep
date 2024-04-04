@@ -35,54 +35,68 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn process<'a, T: Read>(config: &Config, reader: T, searcher: Box<dyn Search + 'a>) {
-    let mut before_lines = VecDeque::new();
-    let mut after_count = 0;
+    let mut process_helper = process_fn(config, searcher);
 
     BufReader::new(reader)
         .lines()
         .for_each(|s| {
             match s {
                 Ok(line) => {
-                    let results = if config.ignore_case {
-                        searcher.search(&line.to_lowercase())
-                    } else {
-                        searcher.search(&line)
-                    };
-
-                    if config.revert_match {
-                        match results {
-                            None => {
-                                println!("{}", line);
-                            }
-                            Some(_) => { return; }
-                        }
-                    } else {
-                        match results {
-                            None => {
-                                if after_count > 0 {
-                                    after_count -= 1;
-                                    println!("{}", line);
-                                    return;
-                                }
-
-                                before_lines.push_back(line);
-                                if before_lines.len() > config.before_count {
-                                    before_lines.pop_front();
-                                }
-                            }
-                            Some(highlights) => {
-                                before_lines.iter().for_each(|line| println!("{}", line));
-                                before_lines.clear();
-                                after_count = config.after_count;
-
-                                display_highlights(&line, &highlights);
-                            }
-                        }
-                    }
+                    process_helper(line);
                 }
                 Err(_) => { return; }
             }
         });
+}
+
+fn process_fn<'a>(config: &'a Config, searcher: Box<dyn Search + 'a>) -> Box<dyn FnMut(String) + 'a> {
+    match config.revert_match {
+        true => {
+            Box::new(move |line| {
+                let results = if config.ignore_case {
+                    searcher.search(&line.to_lowercase())
+                } else {
+                    searcher.search(&line)
+                };
+                match results {
+                    None => { println!("{}", line); }
+                    Some(_) => {}
+                }
+            })
+        }
+        false => {
+            let mut before_lines = VecDeque::new();
+            let mut after_count = 0;
+            Box::new(move |line| {
+                let results = if config.ignore_case {
+                    searcher.search(&line.to_lowercase())
+                } else {
+                    searcher.search(&line)
+                };
+
+                match results {
+                    None => {
+                        if after_count > 0 {
+                            after_count -= 1;
+                            println!("{}", line);
+                            return;
+                        }
+
+                        before_lines.push_back(line);
+                        if before_lines.len() > config.before_count {
+                            before_lines.pop_front();
+                        }
+                    }
+                    Some(highlights) => {
+                        before_lines.iter().for_each(|line| println!("{}", line));
+                        before_lines.clear();
+                        display_highlights(&line, &highlights);
+                        after_count = config.after_count;
+                    }
+                }
+            })
+        }
+    }
 }
 
 fn display_highlights(s: &str, highlights: &Vec<(usize, usize)>) {
