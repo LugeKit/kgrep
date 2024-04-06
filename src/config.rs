@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -20,9 +22,23 @@ pub struct Config {
     #[arg(short = 'E', long = "pattern", default_value = "false")]
     pub enable_regex: bool,
 
-    #[arg(short = 'A', long = "after", default_value = "0")]
-    pub after_count: usize,
+    #[arg(short = 'A', long = "after_context", default_value = "0")]
+    pub after_context: usize,
 
-    #[arg(short = 'B', long = "before", default_value = "0")]
-    pub before_count: usize,
+    #[arg(short = 'B', long = "before_context", default_value = "0")]
+    pub before_context: usize,
+
+    #[arg(short = 'C', long = "context", default_value = "0")]
+    pub context_count: usize,
+}
+
+impl Config {
+    pub fn validate(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.context_count > 0 {
+            self.before_context = self.context_count;
+            self.after_context = self.context_count;
+        }
+
+        Ok(())
+    }
 }
